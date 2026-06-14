@@ -1,0 +1,17 @@
+services:
+  signal-server:
+    build: .
+    container_name: sgm-signal
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - config.env
+    volumes:
+      - ./datos:/app/datos
+    networks:
+      - sgm-network
+
+networks:
+  sgm-network:
+    driver: bridge

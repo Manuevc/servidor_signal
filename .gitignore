@@ -1,0 +1,27 @@
+# Datos locales (bases de datos, logs, URL temporal)
+datos/
+*.db
+*.sqlite
+*.log
+tunnel_url.txt
+tunnel_url_encrypted.txt
+
+# Configuración sensible
+config.env
+.env
+.env.local
+.env.*.local
+
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker
+docker-compose.override.yml
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
