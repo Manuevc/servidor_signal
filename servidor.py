@@ -10,16 +10,36 @@ from io import BytesIO
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 
+# ==============================================================================
+# CONFIGURACIÓN INICIAL Y ENTORNO
+# ==============================================================================
+# Carga las variables de entorno desde la ruta absoluta del archivo de configuración.
 load_dotenv("/app/config.env")
 
+# Asigna la clave API del servidor, usando un valor de respaldo por seguridad.
 API_KEY = os.getenv("API_KEY", "cambia_esta_clave")
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
-FERNET = Fernet(ENCRYPTION_KEY.encode()) if ENCRYPTION_KEY else None
+FERNET = None
+
+# Inicialización segura del objeto de encriptación Fernet.
+# Si la clave no es válida, captura la excepción para evitar el colapso del servidor.
+if ENCRYPTION_KEY:
+    try:
+        FERNET = Fernet(ENCRYPTION_KEY.encode())
+    except Exception as e:
+        print(f"Advertencia: Clave ENCRYPTION_KEY inválida ({e}). La encriptación de URL estará deshabilitada.")
+        FERNET = None
+
+# Rutas persistentes dentro del volumen compartido del contenedor.
 DATABASE = "/app/datos/nodos.db"
 TUNNEL_URL_FILE = "/app/datos/tunnel_url.txt"
 TUNNEL_URL_ENC_FILE = "/app/datos/tunnel_url_encrypted.txt"
 
-# ---------- Modelos ----------
+# ==============================================================================
+# MODELOS DE DATOS (PYDANTIC)
+# ==============================================================================
+# Define las estructuras y validaciones de datos para las peticiones HTTP entrantes.
+
 class NodePing(BaseModel):
     uuid: str
 
@@ -29,6 +49,7 @@ class NodeAdd(BaseModel):
     puerto: int
     base_folio: str
 
+    # Validador de campo para asegurar que el puerto esté dentro del rango TCP/IP estándar.
     @field_validator('puerto')
     def puerto_valido(cls, v):
         if not (1 <= v <= 65535):
@@ -38,17 +59,25 @@ class NodeAdd(BaseModel):
 class NodeAct(NodeAdd):
     pass
 
-# ---------- Base de datos ----------
+# ==============================================================================
+# GESTIÓN DE LA BASE DE DATOS (SQLITE3)
+# ==============================================================================
+
+# Administrador de contexto para las conexiones a la base de datos.
+# Garantiza el cierre de los descriptores de archivos incluso ante excepciones de ejecución.
 @contextmanager
 def get_db():
     conn = sqlite3.connect(DATABASE, timeout=30.0, check_same_thread=False)
+    # Habilita el modo WAL (Write-Ahead Logging) para permitir lecturas y escrituras concurrentes sin bloqueos.
     conn.execute("PRAGMA journal_mode=WAL")
+    # Configura el retorno de registros como diccionarios accesibles por clave de columna.
     conn.row_factory = sqlite3.Row
     try:
         yield conn
     finally:
         conn.close()
 
+# Inicializa la estructura relacional si el archivo .db se encuentra vacío.
 def init_db():
     with get_db() as conn:
         conn.execute('''
@@ -62,27 +91,36 @@ def init_db():
                 activo BOOLEAN DEFAULT 1
             )
         ''')
+        # Crea un índice sobre base_folio para acelerar las consultas masivas de sincronización.
         conn.execute('CREATE INDEX IF NOT EXISTS idx_base ON nodos(base_folio)')
 
-# ---------- Lifespan ----------
+# ==============================================================================
+# CICLO DE VIDA DE LA APLICACIÓN (LIFESPAN)
+# ==============================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Acciones de inicio: Inicializa la base de datos antes de escuchar peticiones.
     init_db()
     yield
-    # Shutdown (opcional)
+    # Acciones de apagado.
     pass
 
-# ---------- App ----------
+# Instanciación de la API FastAPI.
 app = FastAPI(title="SGM Signal Server", lifespan=lifespan)
 
-# ---------- Autenticación ----------
+# ==============================================================================
+# DEPENDENCIAS DE AUTENTICACIÓN
+# ==============================================================================
+# Intercepta los encabezados HTTP para validar las llaves de acceso de los nodos.
 def verify_api_key(api_key: str = Header(..., alias="X-API-Key")):
     if api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
     return api_key
 
-# ---------- Endpoints de nodos ----------
+# ==============================================================================
+# ENDPOINTS DE GESTIÓN DE NODOS
+# ==============================================================================
+
 @app.post("/api/ping", dependencies=[Depends(verify_api_key)])
 def ping(p: NodePing):
     return {"status": "pong", "uuid": p.uuid}
@@ -98,6 +136,7 @@ def add(node: NodeAdd):
             conn.commit()
             return {"status": "added", "id": cur.lastrowid}
         except sqlite3.IntegrityError:
+            # Captura conflictos de clave única en caso de que el UUID ya esté registrado.
             raise HTTPException(status_code=409, detail="UUID already exists")
 
 @app.post("/api/del", dependencies=[Depends(verify_api_key)])
@@ -131,7 +170,10 @@ def show(base_folio: str):
         nodes = [dict(row) for row in cur.fetchall()]
     return {"nodes": nodes}
 
-# ---------- Endpoints de información del servidor ----------
+# ==============================================================================
+# ENDPOINTS DE INFORMACIÓN GENERAL DEL SERVIDOR
+# ==============================================================================
+
 @app.get("/api/get_server_url", dependencies=[Depends(verify_api_key)])
 def get_server_url():
     try:
@@ -154,10 +196,13 @@ def get_encrypted_url():
 def qr_code():
     url_data = get_server_url()
     url = url_data["server_url"]
+    # Genera la matriz de código QR a partir de la cadena de texto plano.
     img = qrcode.make(url)
+    # Inicializa un flujo de bytes en memoria para no requerir almacenamiento temporal en disco físico.
     buf = BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
+    # Transmite la imagen binaria directamente a través de HTTP streaming.
     return StreamingResponse(buf, media_type="image/png")
 
 @app.get("/api/qr_encrypted", dependencies=[Depends(verify_api_key)])

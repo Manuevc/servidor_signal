@@ -1,17 +1,40 @@
+# ==============================================================================
+# CONFIGURACIÓN DE ORQUESTACIÓN CON DOCKER COMPOSE
+# ==============================================================================
+# Define y gestiona el ciclo de vida, las redes, los volúmenes y el entorno 
+# del contenedor que ejecuta el servidor de señalización SGM.
+# ==============================================================================
+
 services:
   signal-server:
+    # Especifica el contexto de construcción; busca el Dockerfile en la raíz local.
     build: .
+    
+    # Asigna un nombre fijo y descriptivo al contenedor para facilitar su monitoreo.
     container_name: sgm-signal
+    
+    # Política de resiliencia: reinicia el contenedor automáticamente si falla o si 
+    # el demonio de Docker se reinicia, a menos que se detenga manualmente.
     restart: unless-stopped
+    
+    # Vincula el puerto 8000 de tu laptop Lenovo host con el puerto 8000 interno del contenedor.
     ports:
       - "8000:8000"
+      
+    # Inyecta las variables de entorno declaradas en tu archivo local protegido.
     env_file:
       - config.env
+      
+    # Mapea un directorio local hacia el contenedor para asegurar la persistencia 
+    # de datos (como el archivo SQLite 'nodos.db' y el historial de URLs).
     volumes:
       - ./datos:/app/datos
+      
+    # Conecta este contenedor a una red interna aislada.
     networks:
       - sgm-network
 
 networks:
+  # Define la red interna compartida usando el controlador 'bridge' estándar de Linux.
   sgm-network:
     driver: bridge
