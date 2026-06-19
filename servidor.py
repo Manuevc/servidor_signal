@@ -91,7 +91,7 @@ def init_db():
         conn.execute('DROP TABLE IF EXISTS nodos')
         # Crear la tabla con la nueva estructura
         conn.execute('''
-            CREATE TABLE nodos (
+            CREATE TABLE IF NOT EXISTS nodos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 uuid TEXT NOT NULL,
                 ip TEXT NOT NULL,
