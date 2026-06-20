@@ -59,6 +59,11 @@ class NodeAdd(BaseModel):
 class NodeAct(NodeAdd):
     pass
 
+# Nuevo modelo para la eliminación de nodos, requiere uuid y base_folio
+class NodeDel(BaseModel):
+    uuid: str
+    base_folio: str
+
 # ==============================================================================
 # GESTIÓN DE LA BASE DE DATOS (SQLITE3)
 # ==============================================================================
@@ -78,21 +83,28 @@ def get_db():
         conn.close()
 
 # Inicializa la estructura relacional si el archivo .db se encuentra vacío.
+# Actualización: la identificación de nodos se hace ahora por uuid + base_folio.
+# Con esto, cualquier nodo puede estar vinculado a cualquier base y viceversa.
 def init_db():
     with get_db() as conn:
+        # Eliminar la tabla si existe (para empezar desde cero)
+        conn.execute('DROP TABLE IF EXISTS nodos')
+        # Crear la tabla con la nueva estructura
         conn.execute('''
             CREATE TABLE IF NOT EXISTS nodos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                uuid TEXT UNIQUE NOT NULL,
+                uuid TEXT NOT NULL,
                 ip TEXT NOT NULL,
                 puerto INTEGER NOT NULL,
                 base_folio TEXT NOT NULL,
                 ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                activo BOOLEAN DEFAULT 1
+                activo BOOLEAN DEFAULT 1,
+                UNIQUE(uuid, base_folio)
             )
         ''')
-        # Crea un índice sobre base_folio para acelerar las consultas masivas de sincronización.
-        conn.execute('CREATE INDEX IF NOT EXISTS idx_base ON nodos(base_folio)')
+        # Crear índices
+        conn.execute('CREATE INDEX idx_base ON nodos(base_folio)')
+        conn.execute('CREATE INDEX idx_uuid ON nodos(uuid)')
 
 # ==============================================================================
 # CICLO DE VIDA DE LA APLICACIÓN (LIFESPAN)
@@ -136,13 +148,17 @@ def add(node: NodeAdd):
             conn.commit()
             return {"status": "added", "id": cur.lastrowid}
         except sqlite3.IntegrityError:
-            # Captura conflictos de clave única en caso de que el UUID ya esté registrado.
-            raise HTTPException(status_code=409, detail="UUID already exists")
+            # Captura conflictos de clave única  en caso de que el (UUID + base_folio) ya esté registrado.
+            raise HTTPException(status_code=409, detail="Node with same UUID and base_folio already exists")
 
 @app.post("/api/del", dependencies=[Depends(verify_api_key)])
-def delete(node: NodePing):
+# Cambio de modelo de datos de <<NodePing>> a <<NodeDel>>
+def delete(node: NodeDel):
     with get_db() as conn:
-        cur = conn.execute("DELETE FROM nodos WHERE uuid = ?", (node.uuid,))
+        cur = conn.execute(
+            "DELETE FROM nodos WHERE uuid = ? AND base_folio = ?",
+            (node.uuid, node.base_folio)
+        )
         conn.commit()
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Node not found")
@@ -151,21 +167,34 @@ def delete(node: NodePing):
 @app.post("/api/act", dependencies=[Depends(verify_api_key)])
 def update(node: NodeAct):
     with get_db() as conn:
+        # Actualizar el nodo que coincide con uuid y base_folio
         cur = conn.execute(
-            "UPDATE nodos SET ip = ?, puerto = ?, base_folio = ?, ultima_actualizacion = ? WHERE uuid = ?",
-            (node.ip, node.puerto, node.base_folio, datetime.now(timezone.utc), node.uuid)
+            "UPDATE nodos SET ip = ?, puerto = ?, base_folio = ?, ultima_actualizacion = ? WHERE uuid = ? AND base_folio = ?",
+            (node.ip, node.puerto, node.base_folio, datetime.now(timezone.utc), node.uuid, node.base_folio)
         )
         conn.commit()
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Node not found")
         return {"status": "updated"}
 
-@app.get("/api/show", dependencies=[Depends(verify_api_key)])
+# Cambio de endpoint de <<show>> a <<show_by_folio>>
+@app.get("/api/show_by_folio", dependencies=[Depends(verify_api_key)])
 def show(base_folio: str):
     with get_db() as conn:
         cur = conn.execute(
-            "SELECT uuid, ip, puerto, ultima_actualizacion FROM nodos WHERE base_folio = ? AND activo = 1",
+            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE base_folio = ? AND activo = 1",
             (base_folio,)
+        )
+        nodes = [dict(row) for row in cur.fetchall()]
+    return {"nodes": nodes}
+
+# Nuevo endpoint para listar nodos por UUID por medio de <<show_by_uuid>>
+@app.get("/api/show_by_uuid", dependencies=[Depends(verify_api_key)])
+def show_by_uuid(uuid: str):
+    with get_db() as conn:
+        cur = conn.execute(
+            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE uuid = ? AND activo = 1",
+            (uuid,)
         )
         nodes = [dict(row) for row in cur.fetchall()]
     return {"nodes": nodes}
