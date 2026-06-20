@@ -212,14 +212,29 @@ def get_server_url():
     except:
         raise HTTPException(status_code=404, detail="URL not available")
 
+# Se actualiza este endpoint para devolver la URL encriptada a partir de la URL ya almacenada dentro del archivo tunnel_url.txt
 @app.get("/api/get_encrypted_url", dependencies=[Depends(verify_api_key)])
 def get_encrypted_url():
+    # Verificar que la clave de encriptación esté configurada
+    if FERNET is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Encryption key not configured or invalid on server"
+        )
     try:
-        with open(TUNNEL_URL_ENC_FILE, "r") as f:
-            encrypted = f.read().strip()
+        # Leer la URL en texto plano
+        with open(TUNNEL_URL_FILE, "r") as f:
+            url_plana = f.read().strip()
+        if not url_plana:
+            raise HTTPException(status_code=404, detail="URL not available")
+
+        # Cifrar la URL
+        encrypted = FERNET.encrypt(url_plana.encode()).decode()
         return {"encrypted_url": encrypted}
-    except:
-        raise HTTPException(status_code=404, detail="Encrypted URL not available")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Base URL file not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Encryption error: {str(e)}")
 
 @app.get("/api/qr", dependencies=[Depends(verify_api_key)])
 def qr_code():

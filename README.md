@@ -32,7 +32,8 @@ Docker Compose version v5.1.4
 ```
 
 Si no los tiene le recomendamos visitar la página oficial de docker para instalar los repositorios más recientes.
-*Nota: Algunas veces podrá consulta la versión de Python con el comando "python" o con el comando python3", esto de acuerdo a su versión."
+*Nota: Algunas veces podrá consulta la versión de Python con el comando "python" o con el comando python3", esto de acuerdo a su versión.*
+
 ---
 
 ## Guía de Configuración
