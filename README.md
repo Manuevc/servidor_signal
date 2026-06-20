@@ -32,7 +32,7 @@ Docker Compose version v5.1.4
 ```
 
 Si no los tiene le recomendamos visitar la página oficial de docker para instalar los repositorios más recientes.
-
+*Nota: Algunas veces podrá consulta la versión de Python con el comando "python" o con el comando python3", esto de acuerdo a su versión."
 ---
 
 ## Guía de Configuración
@@ -213,6 +213,12 @@ Para los siguientes ejemplos de uso, supóngase los siguientes valores aleatorio
 
 Nota: Si se está probando localmente (sin túnel) en el mismo servidor, puede sustituir la URL por http://localhost:8000. Si está utilizando una máquina externa pero en la misma red que el servidor, entonces puede sustituir la URL por la IP del servidor, por ejemplo http://192.168.1.2:8000. En ambos casos de prueba local, mantenga el puerto 8000 o cámbielo dentro del archivo start.sh de acuerdo a sus necesidades.
 
+Consulte la IP con el siguiente comando:
+
+```
+ip a
+```
+
 ### Ejemplos básicos de autenticación (sólo API_KEY):
 
 Todos estos endpoints requieren el encabezado **X-API-Key**.
@@ -223,7 +229,7 @@ Ejecute:
 
 ```
 curl -X POST https://abcd1234.serveousercontent.com/api/ping \
-  -H "X-API-Key: mi_api_key_secreta_123456" \
+  -H "X-API-Key: MiApiKeySecreta123456" \
   -H "Content-Type: application/json" \
   -d '{"uuid": "nodo_001"}'
 ```
@@ -240,7 +246,7 @@ Ejecute:
 
 ```
 curl -X POST https://abcd1234.serveousercontent.com/api/add \
-  -H "X-API-Key: mi_api_key_secreta_123456" \
+  -H "X-API-Key: MiApiKeySecreta123456" \
   -H "Content-Type: application/json" \
   -d '{
     "uuid": "nodo_001",
@@ -262,7 +268,7 @@ Ejecute:
 
 ```
 curl -X POST https://abcd1234.serveousercontent.com/api/act \
-  -H "X-API-Key: mi_api_key_secreta_123456" \
+  -H "X-API-Key: MiApiKeySecreta123456" \
   -H "Content-Type: application/json" \
   -d '{
     "uuid": "nodo_001",
@@ -287,7 +293,7 @@ Ejecute:
 
 ```
 curl -X POST https://abcd1234.serveousercontent.com/api/del \
-  -H "X-API-Key: mi_api_key_secreta_123456" \
+  -H "X-API-Key: MiApiKeySecreta123456" \
   -H "Content-Type: application/json" \
   -d '{"uuid": "nodo_001", "base_folio": "FOLIO_B"}'
 ```
@@ -306,7 +312,7 @@ Ejecute:
 
 ```
 curl -X GET "https://abcd1234.serveousercontent.com/api/show_by_folio?base_folio=FOLIO_B" \
-  -H "X-API-Key: mi_api_key_secreta_123456"
+  -H "X-API-Key: MiApiKeySecreta123456"
 ```
 
 Respuesta esperada:
@@ -333,7 +339,7 @@ Ejecute:
 
 ```
 curl -X GET "https://abcd1234.serveousercontent.com/api/show_by_uuid?uuid=nodo_001" \
-  -H "X-API-Key: mi_api_key_secreta_123456"
+  -H "X-API-Key: MiApiKeySecreta123456"
 ```
 
 Respuesta esperada:
@@ -358,7 +364,7 @@ Ejecute:
 
 ```
 curl -X GET https://abcd1234.serveousercontent.com/api/status \
-  -H "X-API-Key: mi_api_key_secreta_123456"
+  -H "X-API-Key: MiApiKeySecreta123456"
 ```
 
 Respuesta esperada:
@@ -377,7 +383,7 @@ Ejecute:
 
 ```
 curl -X GET https://abcd1234.serveousercontent.com/api/get_server_url \
-  -H "X-API-Key: mi_api_key_secreta_123456"
+  -H "X-API-Key: MiApiKeySecreta123456"
 ```
 
 Respuesta esperada:
@@ -392,7 +398,7 @@ Este endpoint devuelve una imagen PNG. Puede guardarla con el comando siguiente
 
 ```
 curl -X GET https://abcd1234.serveousercontent.com/api/qr \
-  -H "X-API-Key: mi_api_key_secreta_123456" \
+  -H "X-API-Key: MiApiKeySecreta123456" \
   --output qr_server.png
 ```
 
@@ -406,7 +412,7 @@ Ejecute:
 
 ```
 curl -X GET https://abcd1234.serveousercontent.com/api/get_encrypted_url \
-  -H "X-API-Key: mi_api_key_secreta_123456"
+  -H "X-API-Key: MiApiKeySecreta123456"
 ```
 
 Respuesta esperada:
@@ -421,7 +427,7 @@ Este QR contiene la URL cifrada. Al escanearlo, el cliente deberá descifrarla c
 
 ```
 curl -X GET https://abcd1234.serveousercontent.com/api/qr_encrypted \
-  -H "X-API-Key: mi_api_key_secreta_123456" \
+  -H "X-API-Key: MiApiKeySecreta123456" \
   --output qr_encrypted.png
 ```
 
