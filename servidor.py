@@ -9,6 +9,7 @@ import qrcode
 from io import BytesIO
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
+import json
 
 # ==============================================================================
 # CONFIGURACIÓN INICIAL Y ENTORNO
@@ -29,6 +30,14 @@ if ENCRYPTION_KEY:
     except Exception as e:
         print(f"Advertencia: Clave ENCRYPTION_KEY inválida ({e}). La encriptación de URL estará deshabilitada.")
         FERNET = None
+
+def encrypt_response(data):
+    """Encripta un objeto Python (dict/list) y devuelve {"encrypted_data": "..."}."""
+    if FERNET is None:
+        raise HTTPException(status_code=500, detail="Encryption key not configured")
+    json_str = json.dumps(data)
+    encrypted = FERNET.encrypt(json_str.encode()).decode()
+    return {"encrypted_data": encrypted}
 
 # Rutas persistentes dentro del volumen compartido del contenedor.
 DATABASE = "/app/datos/nodos.db"
@@ -177,27 +186,89 @@ def update(node: NodeAct):
             raise HTTPException(status_code=404, detail="Node not found")
         return {"status": "updated"}
 
+# Se agregan opciones de paginación para administrar mejor la respuesta y evitar saturación en la misma
 # Cambio de endpoint de <<show>> a <<show_by_folio>>
 @app.get("/api/show_by_folio", dependencies=[Depends(verify_api_key)])
-def show(base_folio: str):
+def show_by_folio(
+    base_folio: str,
+    limit: int = 50,
+    offset: int = 0,
+    encrypt: bool = True
+):
+    # Validar y limitar paginación a valores máximos y mínimos
+    if limit > 100:
+        limit = 100
+    if limit < 1:
+        limit = 1
+    if offset < 0:
+        offset = 0
+    # Consulta a la base de datos SQLite lo siguiente:
+    # Conteo total, consulta con paginación
     with get_db() as conn:
-        cur = conn.execute(
-            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE base_folio = ? AND activo = 1",
+        # Total de nodos activos con el base_folio consultado
+        total = conn.execute(
+            "SELECT COUNT(*) FROM nodos WHERE base_folio = ? AND activo = 1",
             (base_folio,)
+        ).fetchone()[0]
+        # Consulta con límites de paginación
+        cur = conn.execute(
+            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE base_folio = ? AND activo = 1 ORDER BY id LIMIT ? OFFSET ?",
+            (base_folio, limit, offset)
         )
         nodes = [dict(row) for row in cur.fetchall()]
-    return {"nodes": nodes}
+    # Compactación de resultados
+    result = {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "nodes": nodes
+    }
+    # Respuesta encriptada
+    if encrypt:
+        return encrypt_response(result)
+    return result
 
+# Se agregan opciones de paginación para administrar mejor la respuesta y evitar saturación en la misma
 # Nuevo endpoint para listar nodos por UUID por medio de <<show_by_uuid>>
 @app.get("/api/show_by_uuid", dependencies=[Depends(verify_api_key)])
-def show_by_uuid(uuid: str):
+def show_by_uuid(
+    uuid: str,
+    limit: int = 50,
+    offset: int = 0,
+    encrypt: bool = True
+):
+    # Validar y limitar paginación a valores máximos y mínimos
+    if limit > 100:
+        limit = 100
+    if limit < 1:
+        limit = 1
+    if offset < 0:
+        offset = 0
+    # Consulta a la base de datos SQLite lo siguiente:
+    # Conteo total, consulta con paginación
     with get_db() as conn:
-        cur = conn.execute(
-            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE uuid = ? AND activo = 1",
+        # Total de nodos activos con el uuid consultado
+        total = conn.execute(
+            "SELECT COUNT(*) FROM nodos WHERE uuid = ? AND activo = 1",
             (uuid,)
+        ).fetchone()[0]
+        # Consulta con límites de paginación
+        cur = conn.execute(
+            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE uuid = ? AND activo = 1 ORDER BY id LIMIT ? OFFSET ?",
+            (uuid, limit, offset)
         )
         nodes = [dict(row) for row in cur.fetchall()]
-    return {"nodes": nodes}
+    # Compactación de resultados
+    result = {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "nodes": nodes
+    }
+    # Respuesta encriptada
+    if encrypt:
+        return encrypt_response(result)
+    return result
 
 # ==============================================================================
 # ENDPOINTS DE INFORMACIÓN GENERAL DEL SERVIDOR
@@ -273,3 +344,81 @@ def status():
         "tunnel_active": tunnel_active,
         "api_version": "1.0"
     }
+
+# Nuevo endpoint que devuelve una lista única de base_folios registrados en el servidor de señalización
+@app.get("/api/list_folios", dependencies=[Depends(verify_api_key)])
+def list_folios(
+    limit: int = 50,
+    offset: int = 0,
+    encrypt: bool = True
+):
+    # Validaciones de límites máximos y mínimos
+    if limit > 100:
+        limit = 100
+    if limit < 1:
+        limit = 1
+    if offset < 0:
+        offset = 0
+
+    with get_db() as conn:
+        # Total de folios distintos
+        total = conn.execute(
+            "SELECT COUNT(DISTINCT base_folio) FROM nodos WHERE activo = 1"
+        ).fetchone()[0]
+
+        # Lista de folios distintos con paginación
+        cur = conn.execute(
+            "SELECT DISTINCT base_folio FROM nodos WHERE activo = 1 ORDER BY base_folio LIMIT ? OFFSET ?",
+            (limit, offset)
+        )
+        folios = [row["base_folio"] for row in cur.fetchall()]
+    # Compactación de resultados
+    result = {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "folios": folios
+    }
+    # Respuesta encriptada
+    if encrypt:
+        return encrypt_response(result)
+    return result
+
+# Nuevo endpoint que devuelve una lista única de base_folios registrados en el servidor de señalización
+@app.get("/api/list_uuids", dependencies=[Depends(verify_api_key)])
+def list_uuids(
+    limit: int = 50,
+    offset: int = 0,
+    encrypt: bool = True
+):
+    # Validaciones de límites máximos y mínimos
+    if limit > 100:
+        limit = 100
+    if limit < 1:
+        limit = 1
+    if offset < 0:
+        offset = 0
+
+    with get_db() as conn:
+        # Total de UUIDs distintos
+        total = conn.execute(
+            "SELECT COUNT(DISTINCT uuid) FROM nodos WHERE activo = 1"
+        ).fetchone()[0]
+
+        # Lista de UUIDs distintos con paginación
+        cur = conn.execute(
+            "SELECT DISTINCT uuid FROM nodos WHERE activo = 1 ORDER BY uuid LIMIT ? OFFSET ?",
+            (limit, offset)
+        )
+        uuids = [row["uuid"] for row in cur.fetchall()]
+    # Compactación de resultados
+    result = {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "uuids": uuids
+    }
+    # Respuesta encriptada
+    if encrypt:
+        return encrypt_response(result)
+    return result

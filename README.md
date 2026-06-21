@@ -32,7 +32,7 @@ Docker Compose version v5.1.4
 ```
 
 Si no los tiene le recomendamos visitar la página oficial de docker para instalar los repositorios más recientes.
-*Nota: Algunas veces podrá consulta la versión de Python con el comando "python" o con el comando python3", esto de acuerdo a su versión.*
+> *Nota: Algunas veces podrá consulta la versión de Python con el comando "python" o con el comando python3", esto de acuerdo a su versión.*
 
 ---
 
@@ -192,17 +192,29 @@ Todas las peticiones (salvo que se indique lo contrario) requieren obligatoriame
 ### Gestión de Nodos (POST).
 
 * **/api/ping**: Comprobación básica de latencia para verificar el estado de conexión de un nodo.
-* **/api/add**: Registra un nuevo nodo en la base de datos interna SQLite (nodos.db). Almacena su uuid, dirección ip, puerto y base_folio. La combinación **uuid + base_folio** debe ser única.
+* **/api/add**: Registra un nuevo nodo en la base de datos interna SQLite (nodos.db). Almacena su uuid, dirección ip, puerto y base_folio. La combinación **uuid + base_folio** debe ser única (clave compuesta).
 * **/api/act**: Actualiza los parámetros de red o folios de un nodo existente. Para identificar el nodo, se requiere enviar tanto el **uuid** como el **base_folio** actuales.
 * **/api/del**: Remueve permanentemente a un nodo del directorio activo de señalización. Para eliminar, se requiere enviar tanto el **uuid** como el **base_folio** del nodo.
 
 ### Consultas e información (GET).
 
-* **/api/show_by_folio?base_folio=VALOR**: Retorna la lista de todos los nodos activos vinculados a un `base_folio` específico (puede haber varios con el mismo base_folio pero distinto uuid).
-* **/api/show_by_uuid?uuid=VALOR**: Retorna la lista de todos los nodos activos que coinciden con un `uuid` dado (puede haber varios con el mismo uuid pero distinto base_folio).
+* **/api/show_by_folio**: Lista nodos activos de un `base_folio` específico, con paginación (`limit`, `offset`) y opción de encriptación de la respuesta (`encrypt`).
+* **/api/show_by_uuid**: Lista nodos activos que coinciden con un `uuid`, con paginación y encriptación opcional.
+* **/api/list_folios**: Devuelve la lista de folios únicos registrados, con paginación y encriptación opcional.
+* **/api/list_uuids**: Devuelve la lista de UUIDs únicos registrados, con paginación y encriptación opcional.
 * **/api/status**: Devuelve métricas generales del estado del servidor, la hora del sistema en formato UTC y si el túnel inverso permanece activo.
 * **/api/get_server_url**: Devuelve la URL pública actual del túnel en formato de texto plano.
-* **/api/get_encrypted_url**: Devuelve la URL pública encriptada de forma simétrica a través del algoritmo Fernet (requiere haber configurado una ENCRYPTION_KEY válida).
+* **/api/get_encrypted_url**: Devuelve la URL pública encriptada de forma simétrica a través del algoritmo Fernet (requiere haber configurado una ENCRYPTION_KEY válida). La encriptación se realiza en vivo a partir de la URL plana.
+* **/api/qr**: Genera un código QR con la URL pública (imagen PNG).
+* **/api/qr_encrypted**: Genera un código QR con la URL encriptada (imagen PNG).
+
+### Parámetros comunes en los endpoints GET show y list:
+
+| Parámetro | Tipo | Defecto | Descripción |
+|-----------|------|---------|-------------|
+| `limit` | entero | 50 | Número máximo de resultados por página (máximo 100). |
+| `offset` | entero | 0 | Desplazamiento para paginación (0 = primera página). |
+| `encrypt` | booleano | `true` (en la mayoría) | Si es `true`, la respuesta completa se encripta con Fernet. |
 
 ## Ejemplos explícitos de uso.
 
@@ -212,7 +224,7 @@ Para los siguientes ejemplos de uso, supóngase los siguientes valores aleatorio
 * API_KEY: MiApiKeySecreta123456 (puede ser cualquiera, o una generada aleatoriamente).
 * ENCRIPTION_KEY: MiEncriptionKey123456 (solamente pueden ser aquellas generadas por el código del Paso 3, o en su defecto deje vacío este campo en el archivo de configuración).
 
-Nota: Si se está probando localmente (sin túnel) en el mismo servidor, puede sustituir la URL por http://localhost:8000. Si está utilizando una máquina externa pero en la misma red que el servidor, entonces puede sustituir la URL por la IP del servidor, por ejemplo http://192.168.1.2:8000. En ambos casos de prueba local, mantenga el puerto 8000 o cámbielo dentro del archivo start.sh de acuerdo a sus necesidades.
+> *Nota: Si se está probando localmente (sin túnel) en el mismo servidor, puede sustituir la URL por http://localhost:8000. Si está utilizando una máquina externa pero en la misma red que el servidor, entonces puede sustituir la URL por la IP del servidor, por ejemplo http://192.168.1.2:8000. En ambos casos de prueba local, mantenga el puerto 8000 o cámbielo dentro del archivo start.sh de acuerdo a sus necesidades.*
 
 Consulte la IP con el siguiente comando:
 
@@ -286,7 +298,7 @@ Respuesta esperada:
 ```
 
 
-**Nota**: Si se cambia el `base_folio`, la nueva combinación `(uuid, base_folio)` debe ser única; de lo contrario, se producirá un error de conflicto (409).
+> *Nota: Si se cambia el `base_folio`, la nueva combinación `(uuid, base_folio)` debe ser única; de lo contrario, se producirá un error de conflicto (409).*
 
 #### Eliminar un nodo (/api/del):
 
@@ -357,6 +369,99 @@ Respuesta esperada:
   ]
 }
 ```
+
+
+#### Consultas paginadas y encriptación
+
+**1. Listar nodos por `base_folio` con paginación y sin encriptar**
+
+Ejecute:
+
+```
+curl -X GET "https://abcd1234.serveousercontent.com/api/show_by_folio?base_folio=FOLIO_A&limit=2&offset=0&encrypt=false" \
+  -H "X-API-Key: MiApiKeySecreta123456"
+```
+
+Respuesta (ejemplo):
+
+```
+{
+  "total": 2,
+  "limit": 2,
+  "offset": 0,
+  "nodes": [
+    {
+      "uuid": "nodo_001",
+      "ip": "192.168.1.100",
+      "puerto": 8080,
+      "base_folio": "FOLIO_A",
+      "ultima_actualizacion": "2026-06-21 10:30:00.123456+00:00"
+    },
+    {
+      "uuid": "nodo_002",
+      "ip": "192.168.1.101",
+      "puerto": 8081,
+      "base_folio": "FOLIO_A",
+      "ultima_actualizacion": "2026-06-21 10:31:00.123456+00:00"
+    }
+  ]
+}
+```
+
+**2. Listar nodos por `uuid` con paginación (segunda página)**
+
+```
+curl -X GET "https://abcd1234.serveousercontent.com/api/show_by_uuid?uuid=nodo_001&limit=2&offset=1&encrypt=false" \
+  -H "X-API-Key: MiApiKeySecreta123456"
+```
+
+**3. Obtener lista única de folios (sin encriptar)**
+
+Ejecute:
+
+```
+curl -X GET "https://abcd1234.serveousercontent.com/api/list_folios?limit=10&offset=0&encrypt=false" \
+  -H "X-API-Key: MiApiKeySecreta123456"
+```
+
+Respuesta:
+
+```
+{
+  "total": 3,
+  "limit": 10,
+  "offset": 0,
+  "folios": ["FOLIO_A", "FOLIO_B", "FOLIO_C"]
+}
+```
+
+**4. Obtener lista única de UUIDs**
+
+Ejecute:
+
+```
+curl -X GET "https://abcd1234.serveousercontent.com/api/list_uuids?limit=5&encrypt=false" \
+  -H "X-API-Key: MiApiKeySecreta123456"
+```
+
+**5. Petición encriptada (toda la respuesta se cifra)**
+
+Ejecute:
+
+```
+curl -X GET "https://abcd1234.serveousercontent.com/api/list_folios?limit=3&encrypt=true" \
+  -H "X-API-Key: MiApiKeySecreta123456"
+```
+
+Respuesta:
+
+```
+{
+  "encrypted_data": "gAAAAABqODoHyWupoNSjaMzXKCCYimsaarWQrGaLcAH-eoAAa-kVvMiBatI8LZJSzQ_Deg_lJ5XFUG7NwzqhFxe0n7hgBBUGnqTwbKKV1AXBXwWxSymDKGmAF4DlMxSyMYf7rNSZAnJRFm7EHQ-Lf4rW24pSXDR0TjLLZlPDkfqv993it11GdXbHsFMtF7UlEMZ5LwVeKIzp"
+}
+```
+
+> *Nota: La cadena encriptada puede descifrarse en el cliente con la misma `ENCRYPTION_KEY` usando Fernet (ver ejemplo más abajo).*
 
 
 #### Obtener estado del servidor (/api/status):
@@ -432,29 +537,37 @@ curl -X GET https://abcd1234.serveousercontent.com/api/qr_encrypted \
   --output qr_encrypted.png
 ```
 
-### ¿Cómo descifrar la URL del cliente?
+### ¿Cómo descifrar la URL o una respuesta encriptada?
 
-Si el cliente está escrito en Python, puedes usar cryptography para descifrar:
+Si el cliente está escrito en Python, puedes usar `cryptography` para descifrar:
 
 ```
 from cryptography.fernet import Fernet
+import json
 
-encrypted_url = "gAAAAABm..."   # cadena obtenida del endpoint
+# Para URL encriptada
+encrypted_url = "gAAAAABm..."   # cadena obtenida del endpoint /api/get_encrypted_url
 key = "clave_simetrica_generada"   # la misma ENCRYPTION_KEY
-
 cipher = Fernet(key.encode())
 decrypted_url = cipher.decrypt(encrypted_url.encode()).decode()
 print(decrypted_url)  # Muestra la URL pública real
+
+# Para respuesta encriptada (ej. /api/list_folios?encrypt=true)
+encrypted_response = "gAAAAABn..."  # cadena del campo "encrypted_data"
+decrypted_json = cipher.decrypt(encrypted_response.encode()).decode()
+data = json.loads(decrypted_json)
+print(data)  # Muestra el objeto JSON original
 ```
 
-Esto permite distribuir la URL de forma segura, por ejemplo, a través de un código QR que solo los nodos autorizados puedan interpretar.
+Esto permite distribuir la URL y las respuestas de forma segura, por ejemplo, a través de códigos QR que solo los nodos autorizados puedan interpretar.
 
 ### Notas:
 
 * Todas las peticiones deben incluir el encabezado X-API-Key. Sin él, el servidor responde con *401 Unauthorized*.
 * La URL pública cambia cada vez que el túnel se reinicia (por ejemplo, al levantar el contenedor). Por eso es importante que los nodos consulten periódicamente /api/get_server_url o /api/get_encrypted_url para conocer la dirección actual. Esto solamente ocurre en la versión gratuita. Si está pagando por usar Serveo, entonces no sucederá.
 * El puerto del nodo debe estar en el rango 1‑65535, validado automáticamente por Pydantic.
-* * Los campos `uuid` y `base_folio` son textos libres. **La combinación de ambos debe ser única**; es decir, no puede haber dos nodos con el mismo `uuid` y el mismo `base_folio` simultáneamente. Esto permite que un mismo `uuid` pueda aparecer en diferentes `base_folio` sin conflicto.
+* Los campos `uuid` y `base_folio` son textos libres. **La combinación de ambos debe ser única**; es decir, no puede haber dos nodos con el mismo `uuid` y el mismo `base_folio` simultáneamente. Esto permite que un mismo `uuid` pueda aparecer en diferentes `base_folio` sin conflicto.
+* La encriptación de respuestas (`encrypt=true`) aplica a todo el JSON de la respuesta, no solo a un campo interno. Esto añade una capa adicional de seguridad para la comunicación entre el servidor y los nodos.
 
 ---
 
