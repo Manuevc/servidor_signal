@@ -30,6 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia los archivos estrictamente necesarios para el núcleo de la aplicación.
 # Se omite tunnel_manager.py y scripts experimentales, consolidando el diseño limpio.
 COPY servidor.py start.sh .
+COPY config.env /app/config.env
 
 # Otorga permisos de ejecución nativos al script orquestador de Bash.
 RUN chmod +x start.sh

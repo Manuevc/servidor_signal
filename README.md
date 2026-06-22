@@ -17,19 +17,19 @@ Antes de comenzar, asegúrese de tener instaladas las siguientes herramientas en
 
 Abra una terminal y ejecute los siguientes comandos. Ambos deberían devolverte una versión de texto (ej. Docker version 24.0).
 
-```
-docker --version
-docker compose version
-```
+> ```
+> docker --version
+> docker compose version
+> ```
 
 Por ejemplo, le debería entregar algunos resultados similares a los siguientes:
 
-```
-usuario@maquina ~ docker --version
-Docker version 29.5.3, build d1c06ef
-usuario@maquina ~ docker compose version
-Docker Compose version v5.1.4
-```
+> ```
+> usuario@maquina ~ docker --version
+> Docker version 29.5.3, build d1c06ef
+> usuario@maquina ~ docker compose version
+> Docker Compose version v5.1.4
+> ```
 
 Si no los tiene le recomendamos visitar la página oficial de docker para instalar los repositorios más recientes.
 > *Nota: Algunas veces podrá consulta la versión de Python con el comando "python" o con el comando python3", esto de acuerdo a su versión.*
@@ -52,65 +52,38 @@ Se recomienda nombrar el directorio como: *servidor_signal*, pero puede elegir e
 
 1. Abra una terminal.
 2. Diríjase al directorio local. Utilice los comandos
-```
-ls
-```
-para ver el contenido del directorio y
-```
-cd nombre_carpeta
-```
-para entrar en los directorios. Para retroceder, utilice el comando
-```
-cd ..
-```
-(con dos puntos seguidos).
+> ```ls``` para ver el contenido del directorio y
+>
+> ```cd nombre_carpeta``` para entrar en los directorios. Para retroceder, utilice el comando
+>
+> ```cd ..``` (con dos puntos seguidos).
 
 En la terminal debe ser capaz de ver el conjunto de archivos que descargó (no el archivo comprimido porque en el Paso 1 ya los descomprimió).
 
 ### Paso 3. Crear y configurar el archivo de configuración (config.env).
 
 1. Ejecute el comando 
-```
-ls
-```
-para que observe el contenido del directorio local. En éste podrá observar un archivo llamado *config.env.example*.
+> ```ls``` para que observe el contenido del directorio local. En éste podrá observar un archivo llamado *config.env.example*.
 
 2. Copie el archivo ejecutando el siguiente comando: 
-```
-cp config.env.example config.env
-```
-. Si vuelve a ejecutar el comando
-```
-ls
-```
-podrá observar que se creó el archivo *config.env*.
+> ```cp config.env.example config.env```. Si vuelve a ejecutar el comando
+> ```ls``` podrá observar que se creó el archivo *config.env*.
 
 3. Genere una API_KEY aleatoria ejecutando el siguiente comando:
-```
-python -c "import secrets; print(secrets.token_hex(32))"
-```
+> ```python -c "import secrets; print(secrets.token_hex(32))"```
 
 4. Genere una ENCRIPTION_KEY aleatoria ejecuntando el siguiente comando:
-```
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+> ```python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"```
 
 5. Edite el archivo de configuración. Abra la interfaz de *nano* para editar el archivo ejecutando el comando:
-```
-nano config.env
-```
+> ```nano config.env```
 
 6. Una vez abierto el archivo de configuración *config.env* en la interfaz de *nano*, copie el API_KEY generado anteriormente en el campo de mismo nombre.
 7. También copie el ENCRIPTION_KEY generado anteriormente en el campo de mismo nombre, o en su defecto déjelo vacío. Se recomienda agregar la clave de encriptación para comunicación encriptada, pero puede probar sin encriptación.
 8. Guarde el archivo de configuración presionando la combinación de teclas 
-```
-Ctrl + o
-```
-para guardar (presione Enter para confirmar el nombre del archivo) y 
-```
-Ctrl + x
-```
-para cerrar la interfaz de nano.
+> ```Ctrl + o``` para guardar (presione Enter para confirmar el nombre del archivo) y 
+>
+> ```Ctrl + x``` para cerrar la interfaz de nano.
 
 ---
 
@@ -121,42 +94,100 @@ Siga estas instrucciones en orden secuencial para levantar el contenedor y despl
 ### Paso 4. Levantar el contenedor.
 
 1. Ejecute el siguiente comando para levantar el contenedor: 
-```
-docker compose up -d --build
-```
+> ```docker compose up -d --build```
 
 Podrá observar que Docker descargará la imagen base de Python e instalará las librerías necesarias a partir de las versiones especificadas en *requirements.txt*. El parámetro *-d* garantiza que el servicio corra en modo asíncrono para liberar la terminal inmediatamente.
 
 ### Paso 5. Verificar la URL Pública Asignada.
 
 1. Ejecute el siguiente comando para ver los logs del contenedor:
-```
-docker logs -f sgm-signal
-```
-2. Cierre los logs cuando ya no necesite verlos ejecutando la combinación de teclas:
-```
-Ctrl + c
-```
+> ```docker logs -f sgm-signal```
 
-El contenedor iniciará un proceso SSH nativo en segundo plano que solicitará un túnel dinámico hacia los servidores de Serveo (serveo.net). Para visualizar la URL pública que se ha asignado al servidor, puede inspeccionar los logs desplegados en el comando anterior. Verá un mensaje similar al siguiente:
+2. Cierre los logs cuando ya no necesite verlos ejecutando la combinación de teclas:
+> ```Ctrl + c```
+
+El contenedor iniciará un proceso SSH nativo en segundo plano que solicitará un túnel dinámico hacia los servidores de Serveo (serveo.net). Para visualizar la URL pública que se ha asignado al servidor, puede inspeccionar los logs desplegados en el comando anterior. Verá un mensaje similar al siguiente (en modo gratuito):
 
 ```
 Iniciando script start.sh
+Archivo config.env cargado correctamente.
 Directorio de logs creado
+Usando configuración estándar (dominio aleatorio de Serveo).
 Túnel lanzado con PID 7
 Esperando URL...
 Intentando establecer túnel Serveo...
-Túnel listo. URL: https://9cc624897225fc85-177-226-169-30.serveousercontent.com
 Pseudo-terminal will not be allocated because stdin is not a terminal.
 Warning: Permanently added 'serveo.net' (RSA) to the list of known hosts.
-Forwarding HTTP traffic from https://bb4d6b616adb4502-177-226-169-30.serveousercontent.com
-URL encontrada: https://bb4d6b616adb4502-177-226-169-30.serveousercontent.com
-INFO:     Started server process [1]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Forwarding HTTP traffic from https://9cc624897225fc85-177-226-169-30.serveousercontent.com
+URL encontrada: https://9cc624897225fc85-177-226-169-30.serveousercontent.com
+INFO: Started server process [1]
+INFO: Waiting for application startup.
+INFO: Application startup complete.
+INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
 ```
+
+---
+
+## Configuración avanzada: dominio personalizado (para usuarios de pago)
+
+Si se ha contratado un plan de pago en Serveo y deseas usar tu propio dominio o subdominio, el servidor lo soporta de forma nativa. Para ello, debes:
+
+1. **Generar una llave SSH** (si no tienes una):
+> ``` ssh-keygen -t rsa -b 4096 -f ~/.ssh/serveo_key -N ```
+
+2. **Obtener la huella (fingerprint)** de tu llave pública:
+> ```
+> ssh-keygen -l -f ~/.ssh/serveo_key.pub
+> ``` 
+La salida tendrá el formato SHA256:pmc7ZRv7ymCmghUwHoJWEm5ToSTd33ryeDeps5RnfRY
+
+3. **Configurar los registros DNS** de su dominio:
+   * Agrega un registro CNAME apuntando a serveo.net.
+   * Agrega un registro TXT en _serveo-authkey.[tu-dominio] con el valor de la huella obtenida.
+
+4. **Editar config.env** y definir las siguientes variables:
+> ```
+> SERVEO_DOMAIN=mi-servicio.serveo.net   # Tu dominio o subdominio
+> SERVEO_SSH_KEY_PATH=/app/keys/serveo_key   # Ruta de la llave dentro del contenedor
+> SERVEO_SSH_KEY_FINGERPRINT=SHA256:pmc7ZRv7ymCmghUwHoJWEm5ToSTd33ryeDeps5RnfRY
+> ```
+
+5. **Montar la llave SSH** en el contenedor agregando un volumen en docker-compose.yml:
+> ```
+> volumes:
+>   - ./datos:/app/datos
+>   - ./config.env:/app/config.env
+>   - ~/.ssh/serveo_key:/app/keys/serveo_key   # Montar la llave privada
+> ```
+
+6. **Reconstruir y levantar el contenedor**:
+> ```
+> docker compose down
+> docker compose up -d --build
+> ```
+
+> **Nota importante**: *Si la configuración de dominio personalizado está incompleta (por ejemplo, solo se define SERVEO_DOMAIN pero no SERVEO_SSH_KEY_PATH), el script fallará explícitamente y no levantará el servidor, mostrando un mensaje de error claro. Esto evita que el servidor se ejecute con una configuración incorrecta. Si deseas usar el modo gratuito, simplemente deja las variables vacías.*
+
+Si se ha configurado un dominio personalizado, los logs mostrarán:
+
+```
+Iniciando script start.sh
+Archivo config.env cargado correctamente.
+Directorio de logs creado
+Configuración de dominio personalizado detectada: mi-servicio.serveo.net
+Ruta de llave SSH: /app/keys/serveo_key
+Huella de llave configurada: SHA256:...
+Túnel lanzado con PID 7
+Esperando URL...
+Intentando establecer túnel Serveo...
+Forwarding HTTP traffic from https://mi-servicio.serveo.net
+URL encontrada: https://mi-servicio.serveo.net
+INFO: Started server process [1]
+```
+
+> **Nota**: Si ves un mensaje de error como `ERROR: Configuración de dominio personalizado incompleta.`, significa que tienes definida una variable de dominio pero falta la otra. Procure haber realizado correctamente los pasos de la Configuración Avanzada para dominio personalizado (esta misma sección).
+
 
 ---
 
@@ -568,6 +599,7 @@ Esto permite distribuir la URL y las respuestas de forma segura, por ejemplo, a 
 * El puerto del nodo debe estar en el rango 1‑65535, validado automáticamente por Pydantic.
 * Los campos `uuid` y `base_folio` son textos libres. **La combinación de ambos debe ser única**; es decir, no puede haber dos nodos con el mismo `uuid` y el mismo `base_folio` simultáneamente. Esto permite que un mismo `uuid` pueda aparecer en diferentes `base_folio` sin conflicto.
 * La encriptación de respuestas (`encrypt=true`) aplica a todo el JSON de la respuesta, no solo a un campo interno. Esto añade una capa adicional de seguridad para la comunicación entre el servidor y los nodos.
+* Si estás usando un dominio personalizado (plan de pago), asegúrate de que la llave SSH esté correctamente montada y con permisos 600. El script `start.sh` ajusta automáticamente los permisos a 600 si detecta que son incorrectos.
 
 ---
 
@@ -596,4 +628,16 @@ Si el sistema no arranca o si se experimentan anomalías en los flujos de red, l
    * Para esquemas de validación de puertos y campos binarios: Soporte de Pydantic (https://docs.pydantic.dev/).
    * Para la suite de servidores ASGI que procesa la aplicación: Portal de Uvicorn (https://www.uvicorn.org/).
 
+### 4. Errores en la configuración de dominio personalizado (usuarios de pago)
 
+* **Síntoma**: El contenedor se reinicia constantemente y en los logs aparece `ERROR: Configuración de dominio personalizado incompleta.`
+* **Causa**: Has definido `SERVEO_DOMAIN` o `SERVEO_SSH_KEY_PATH`, pero no ambas. El script no puede establecer el túnel con dominio propio sin ambos parámetros.
+* **Solución**: Edita `config.env` y completa ambas variables, o elimina ambas para usar el modo gratuito. Si no quieres usar dominio personalizado, deja las variables vacías.
+
+* **Síntoma**: Aparece `ERROR: No se encontró la llave SSH en /app/keys/...`
+* **Causa**: La ruta especificada en `SERVEO_SSH_KEY_PATH` no existe dentro del contenedor.
+* **Solución**: Verifica que el archivo de la llave privada exista en esa ruta. Puedes montarla como volumen en `docker-compose.yml` (ver sección "Configuración avanzada").
+
+* **Síntoma**: Aparece `ERROR: Fallo en la conexión SSH: No TXT record found...`
+* **Causa**: Los registros DNS para tu dominio no están configurados correctamente (falta el registro TXT en `_serveo-authkey.[dominio]` o el CNAME).
+* **Solución**: Revisa que los registros DNS estén activos y propagados. Puedes verificarlos con `dig _serveo-authkey.tudominio.com TXT`.

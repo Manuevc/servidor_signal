@@ -29,6 +29,7 @@ services:
     # de datos (como el archivo SQLite 'nodos.db' y el historial de URLs).
     volumes:
       - ./datos:/app/datos
+      - ./config.env:/app/config.env
       
     # Conecta este contenedor a una red interna aislada.
     networks:
