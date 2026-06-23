@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from contextlib import contextmanager, asynccontextmanager
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 import qrcode
 from io import BytesIO
 from cryptography.fernet import Fernet
@@ -54,16 +54,23 @@ class NodePing(BaseModel):
 
 class NodeAdd(BaseModel):
     uuid: str
-    ip: str
-    puerto: int
     base_folio: str
+    ip: str | None = None
+    puerto: int | None = None
+    url: str | None = None
 
     # Validador de campo para asegurar que el puerto esté dentro del rango TCP/IP estándar.
     @field_validator('puerto')
     def puerto_valido(cls, v):
-        if not (1 <= v <= 65535):
+        if v is not None and not (1 <= v <= 65535):
             raise ValueError('Puerto debe estar entre 1 y 65535')
         return v
+    # Validador condicional de contenido
+    @model_validator(mode='after')
+    def verificar_direccion(self):
+        if not (self.url or (self.ip and self.puerto)):
+            raise ValueError('Debe proporcionar una url_temporal o la combinación de ip y puerto')
+        return self    
 
 class NodeAct(NodeAdd):
     pass
@@ -99,12 +106,14 @@ def init_db():
         # Eliminar la tabla si existe (para empezar desde cero)
         conn.execute('DROP TABLE IF EXISTS nodos')
         # Crear la tabla con la nueva estructura
+        # Se permiten ahora datos NULL para IP y para Puerto, además de agregar el campo URL que igual acepta NULL.
         conn.execute('''
             CREATE TABLE IF NOT EXISTS nodos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 uuid TEXT NOT NULL,
-                ip TEXT NOT NULL,
-                puerto INTEGER NOT NULL,
+                ip TEXT DEFAULT NULL,
+                puerto INTEGER DEFAULT NULL,
+                url TEXT DEFAULT NULL,
                 base_folio TEXT NOT NULL,
                 ultima_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 activo BOOLEAN DEFAULT 1,
@@ -146,13 +155,15 @@ def verify_api_key(api_key: str = Header(..., alias="X-API-Key")):
 def ping(p: NodePing):
     return {"status": "pong", "uuid": p.uuid}
 
+# Se añade el campo url en la devolución de campos
 @app.post("/api/add", dependencies=[Depends(verify_api_key)])
 def add(node: NodeAdd):
     with get_db() as conn:
         try:
+            # Se agrega el campo url
             cur = conn.execute(
-                "INSERT INTO nodos (uuid, ip, puerto, base_folio, ultima_actualizacion) VALUES (?, ?, ?, ?, ?)",
-                (node.uuid, node.ip, node.puerto, node.base_folio, datetime.now(timezone.utc))
+                "INSERT INTO nodos (uuid, ip, puerto, url, base_folio, ultima_actualizacion) VALUES (?, ?, ?, ?, ?, ?)",
+                (node.uuid, node.ip, node.puerto, node.url, node.base_folio, datetime.now(timezone.utc))
             )
             conn.commit()
             return {"status": "added", "id": cur.lastrowid}
@@ -177,9 +188,10 @@ def delete(node: NodeDel):
 def update(node: NodeAct):
     with get_db() as conn:
         # Actualizar el nodo que coincide con uuid y base_folio
+        # Se agregan el campo url
         cur = conn.execute(
-            "UPDATE nodos SET ip = ?, puerto = ?, base_folio = ?, ultima_actualizacion = ? WHERE uuid = ? AND base_folio = ?",
-            (node.ip, node.puerto, node.base_folio, datetime.now(timezone.utc), node.uuid, node.base_folio)
+            "UPDATE nodos SET ip = ?, puerto = ?, url = ?, base_folio = ?, ultima_actualizacion = ? WHERE uuid = ? AND base_folio = ?",
+            (node.ip, node.puerto, node.url, node.base_folio, datetime.now(timezone.utc), node.uuid, node.base_folio)
         )
         conn.commit()
         if cur.rowcount == 0:
@@ -210,9 +222,9 @@ def show_by_folio(
             "SELECT COUNT(*) FROM nodos WHERE base_folio = ? AND activo = 1",
             (base_folio,)
         ).fetchone()[0]
-        # Consulta con límites de paginación
+        # Consulta con límites de paginación, se añade url dentro de los campos de consulta
         cur = conn.execute(
-            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE base_folio = ? AND activo = 1 ORDER BY id LIMIT ? OFFSET ?",
+            "SELECT uuid, ip, puerto, url, base_folio, ultima_actualizacion FROM nodos WHERE base_folio = ? AND activo = 1 ORDER BY id LIMIT ? OFFSET ?",
             (base_folio, limit, offset)
         )
         nodes = [dict(row) for row in cur.fetchall()]
@@ -254,7 +266,7 @@ def show_by_uuid(
         ).fetchone()[0]
         # Consulta con límites de paginación
         cur = conn.execute(
-            "SELECT uuid, ip, puerto, base_folio, ultima_actualizacion FROM nodos WHERE uuid = ? AND activo = 1 ORDER BY id LIMIT ? OFFSET ?",
+            "SELECT uuid, ip, puerto, url, base_folio, ultima_actualizacion FROM nodos WHERE uuid = ? AND activo = 1 ORDER BY id LIMIT ? OFFSET ?",
             (uuid, limit, offset)
         )
         nodes = [dict(row) for row in cur.fetchall()]

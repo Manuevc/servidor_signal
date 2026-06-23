@@ -223,8 +223,8 @@ Todas las peticiones (salvo que se indique lo contrario) requieren obligatoriame
 ### Gestión de Nodos (POST).
 
 * **/api/ping**: Comprobación básica de latencia para verificar el estado de conexión de un nodo.
-* **/api/add**: Registra un nuevo nodo en la base de datos interna SQLite (nodos.db). Almacena su uuid, dirección ip, puerto y base_folio. La combinación **uuid + base_folio** debe ser única (clave compuesta).
-* **/api/act**: Actualiza los parámetros de red o folios de un nodo existente. Para identificar el nodo, se requiere enviar tanto el **uuid** como el **base_folio** actuales.
+* **/api/add**: Registra un nuevo nodo en la base de datos interna SQLite (nodos.db). Almacena su `uuid`, `base_folio`, y la forma de contacto: **URL** (si es un nodo con túnel temporal) o la combinación de **IP + puerto** (si tiene una dirección fija). Se debe proporcionar al menos una forma de contacto (`url` o la combinación `ip` y `puerto`). La combinación **`uuid` + `base_folio`** debe ser única (clave compuesta).
+* **/api/act**: Actualiza los parámetros de red, URL o folios de un nodo existente. Para identificar el nodo, se requiere enviar tanto el **`uuid`** como el **`base_folio`** actuales.
 * **/api/del**: Remueve permanentemente a un nodo del directorio activo de señalización. Para eliminar, se requiere enviar tanto el **uuid** como el **base_folio** del nodo.
 
 ### Consultas e información (GET).
@@ -284,7 +284,7 @@ Respuesta esperada:
 {"status":"pong","uuid":"nodo_001"}
 ```
 
-#### Registrar un nuevo nodo (/api/add):
+#### Registrar un nuevo nodo usando IP y puerto (/api/add):
 
 Ejecute:
 
@@ -306,7 +306,30 @@ Respuesta esperada:
 {"status":"added","id":1}
 ```
 
-#### Actualizar los datos de un nodo existente (/api/act):
+#### Registrar un nuevo nodo usando una URL (/api/add):
+
+Ejecute: 
+
+```
+curl -X POST https://abcd1234.serveousercontent.com/api/add \
+  -H "X-API-Key: MiApiKeySecreta123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "uuid": "nodo_001",
+    "url": "https://xyz789.serveousercontent.com",
+    "base_folio": "FOLIO_A"
+  }'
+```
+
+Respuesta esperada
+
+```
+{"status":"added","id":2}
+```
+
+> *Nota: Debe proporcionar al menos una forma de contacto: `url` o la combinación de `ip` y `puerto`. Si se proporcionan ambas, se almacenan todas.*
+
+#### Actualizar los datos de un nodo existente usando IP y puerto (/api/act):
 
 Ejecute:
 
@@ -328,8 +351,31 @@ Respuesta esperada:
 {"status":"updated"}
 ```
 
+#### Actualizar los datos de un nodo existente actualizando la URL (/api/act):
 
-> *Nota: Si se cambia el `base_folio`, la nueva combinación `(uuid, base_folio)` debe ser única; de lo contrario, se producirá un error de conflicto (409).*
+Ejecute:
+
+```
+curl -X POST https://abcd1234.serveousercontent.com/api/act \
+  -H "X-API-Key: MiApiKeySecreta123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "uuid": "nodo_001",
+    "url": "https://nueva-url-456.serveousercontent.com",
+    "base_folio": "FOLIO_B"
+  }'
+```
+
+Respuesta esperada:
+
+```
+{"status":"updated"}
+```
+
+
+> *Nota 1: Si se cambia el `base_folio`, la nueva combinación `(uuid, base_folio)` debe ser única; de lo contrario, se producirá un error de conflicto (409).*
+>
+> *Nota 2: Al actualizar, se puede modificar la `url`, la `ip` y `puerto`, o ambos. Debe proporcionar al menos una forma de contacto válida.*
 
 #### Eliminar un nodo (/api/del):
 
@@ -600,6 +646,7 @@ Esto permite distribuir la URL y las respuestas de forma segura, por ejemplo, a 
 * Los campos `uuid` y `base_folio` son textos libres. **La combinación de ambos debe ser única**; es decir, no puede haber dos nodos con el mismo `uuid` y el mismo `base_folio` simultáneamente. Esto permite que un mismo `uuid` pueda aparecer en diferentes `base_folio` sin conflicto.
 * La encriptación de respuestas (`encrypt=true`) aplica a todo el JSON de la respuesta, no solo a un campo interno. Esto añade una capa adicional de seguridad para la comunicación entre el servidor y los nodos.
 * Si estás usando un dominio personalizado (plan de pago), asegúrate de que la llave SSH esté correctamente montada y con permisos 600. El script `start.sh` ajusta automáticamente los permisos a 600 si detecta que son incorrectos.
+* Para registrar o actualizar un nodo, se debe proporcionar al menos un método de contacto: `url` (para nodos con túnel temporal) o `ip` + `puerto` (para nodos con dirección fija). La validación de la API se encarga de esto. Si se proporcionan ambas, se almacenan todas.
 
 ---
 
